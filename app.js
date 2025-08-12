@@ -1,71 +1,96 @@
-const BASE_URL = "https://api.openweathermap.org/data/2.5";
-const API_KEY = "7c6e06ad070793922cbb2be0343d16f8";
+import getWeatherData from "./utils/httpReq.js";
+import { removeModal, showModal } from "./utils/modal.js";
+import { getWeekDay } from "./utils/customeDate.js";
 
 const searchInput = document.querySelector("input");
 const searchButton = document.querySelector("button");
 const weatherContainer = document.getElementById("weather");
+const forecastContainer = document.getElementById("forecast");
 const locationIcon = document.getElementById("location");
-
-const getCurrentWeatherByName = async (city) => {
-  const url = `${BASE_URL}/weather?q=${city}&appid=${API_KEY}&units=metric`;
-  const response = await fetch(url);
-  const json = await response.json();
-  return json;
-};
-
-const getCurrentWeatherByCoordinates = async (lat, lon) => {
-  const url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-  const response = await fetch(url);
-  const json = await response.json();
-  return json;
-};
+const modalButton = document.getElementById("modal-button");
 
 const renderCurrentWeather = (data) => {
-  console.log(data);
-  const weatherJSx = `
-    <h1>${data.name}, ${data.sys.country}</h1>
+  if (!data) return;
+  const weatherJSX = `
+    <h1>${data.name} , ${data.sys.country}</h1>
     <div id="main">
         <img alt="weather icon" src="https://openweathermap.org/img/w/${
           data.weather[0].icon
-        }.png"
+        }.png" />
         <span>${data.weather[0].main}</span>
         <p>${Math.round(data.main.temp)} °C</p>
     </div>
     <div id="info">
         <p>Humidity: <span>${data.main.humidity} %</span></p>
-        <p>Wind Speed: <span>${data.wind.speed} m/s</span></p>
+        <p>wind Speed: <span>${data.wind.speed} m/s</span></p>
     </div>
   `;
-  weatherContainer.innerHTML = weatherJSx;
+
+  weatherContainer.innerHTML = weatherJSX;
+};
+
+const renderForecastWeather = (data) => {
+  if (!data) return;
+
+  forecastContainer.innerHTML = "";
+  data = data.list.filter((obj) => obj.dt_txt.endsWith("12:00:00"));
+
+  data.forEach((i) => {
+    const forecastJSX = `
+        <div>
+            <img alt="weather icon" src="https://openweathermap.org/img/w/${
+              i.weather[0].icon
+            }.png" />
+            <h3>${getWeekDay(i.dt)}</h3>
+            <p>${Math.round(i.main.temp)} °C</p>
+            <span>${i.weather[0].main}</span>
+        </div>
+    `;
+    forecastContainer.innerHTML += forecastJSX;
+  });
 };
 
 const searchHandler = async () => {
   const cityName = searchInput.value;
+
   if (!cityName) {
-    alert("Please enter City name!");
+    showModal("Please enter city name!");
+    return;
   }
 
-  const currentData = await getCurrentWeatherByName(cityName);
+  const currentData = await getWeatherData("current", cityName);
   renderCurrentWeather(currentData);
+  const forecastData = await getWeatherData("forecast", cityName);
+  renderForecastWeather(forecastData);
 };
 
 const positionCallbak = async (position) => {
-  const { latitude, longitude } = position.coords;
-  const currentData = await getCurrentWeatherByCoordinates(latitude, longitude);
+  const currentData = await getWeatherData("current", position.coords);
   renderCurrentWeather(currentData);
+  const forecastData = await getWeatherData("forecast", position.coords);
+  renderForecastWeather(forecastData);
 };
 
 const errorCallback = (error) => {
-  console.log(error.message);
+  showModal(error.message);
 };
 
 const locationHandler = () => {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(positionCallbak, errorCallback);
   } else {
-    alert("Your browser does not support geolocation");
+    showModal("You browser does not support geolocation");
   }
+};
+
+const initHandler = async () => {
+  const currentData = await getWeatherData("current", "mashhad");
+  renderCurrentWeather(currentData);
+  const forecastData = await getWeatherData("forecast", "mashhad");
+  renderForecastWeather(forecastData);
 };
 
 searchButton.addEventListener("click", searchHandler);
 locationIcon.addEventListener("click", locationHandler);
+modalButton.addEventListener("click", removeModal);
+document.addEventListener("DOMContentLoaded", initHandler);
